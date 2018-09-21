@@ -106,10 +106,20 @@ void *connection_handler(void *socket_desc)
     //Receive a message from client
     while( 1)
     {
-      if(strcmpst1nl(op,"teste") == 0)
+      if(strcmpst1nl(op,"mkdir") == 0)
       {
-        strcpy(message, "success");
+        strcpy(message, "name: ");
         send(sock, message, strlen(message), 0);
+        char name[1024];
+        read_size = read(sock, name, 1024);
+        if(mkdir(name, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1)
+        {
+          strcpy(message, "Erro ao criar diretorio");
+          send(sock, message, strlen(message), 0);
+        }else {
+          strcpy(message, "sucesso");
+          send(sock, message, strlen(message), 0);
+        }
       }
       else{ strcpy(message, "fail");
           send(sock, message, strlen(message), 0);}
@@ -130,9 +140,9 @@ void *connection_handler(void *socket_desc)
 
 }
 
-int strcmpst1nl (const char * s1, const char * s2)                              //precisa trocar essa função pq é igual a do claudio
-{                                                                               //
-  char s1c;                                                                     //
+int strcmpst1nl (const char * s1, const char * s2)                              
+{
+  char s1c;
   do
     {
       s1c = *s1;

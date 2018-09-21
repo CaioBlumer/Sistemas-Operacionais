@@ -64,9 +64,9 @@ int main(){
   return 0;
 }
 
-int strcmpst1nl (const char * s1, const char * s2)                              //precisa trocar essa função pq é igual a do claudio
-{                                                                               //
-  char s1c;                                                                     //
+int strcmpst1nl (const char * s1, const char * s2)
+{
+  char s1c;
   do
     {
       s1c = *s1;
