@@ -49,7 +49,6 @@ int main(){
 
   /*---- Read the message from the server into the buffer ----*/
 
-
   /*---- Print the received message ----*/
 
   while(1)
