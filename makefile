@@ -1,6 +1,6 @@
-all: cliente server
+all: server cliente
 
-first: cliente.c
-	gcc -o client cliente.c
-second: server.c
-	gcc -o server server.c
+first: server.c
+	gcc -lpthread -o server server.c
+second: cliente.c
+	gcc -o client cliente.c -lpthread
