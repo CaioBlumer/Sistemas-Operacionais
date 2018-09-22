@@ -57,7 +57,7 @@ int main(){
   printf("Data received: %s\n",buffer);
   fgets(msg, LEN, stdin);
   send(clientSocket, msg, strlen(msg),0);
-  memset(buffer, '\0', strlen(buffer));
+  memset(buffer, '\0', strlen(buffer)); // talvez mandar pacote inteiro??
   }
  close(clientSocket);
   return 0;

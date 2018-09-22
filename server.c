@@ -6,7 +6,7 @@
   #include <stdlib.h>
   #include <string.h>
   #include <dirent.h>
-  #include <pthread.h>
+  #include<pthread.h>
   #include <semaphore.h>
   #include <sys/socket.h>
   #include <sys/stat.h>
@@ -17,6 +17,14 @@
   void rmv_dir(int sock);
   int strcmpst1nl (const char * s1, const char * s2);
   void *connection_handler(void *);
+  void create_file(int sock);
+  void remove_file(int sock);
+  void  edit_file(sock);
+  void show_file(int sock);
+
+
+
+
   pthread_mutex_t lock;
 
   int main(){
@@ -51,36 +59,39 @@
      }
 
     /*---- Listen on the socket, with 5 max connection requests queued ----*/
-    if(listen(welcomeSocket,5)==0)
-      printf("Listening\n");
-    else
-      printf("Error\n");
-
-    /*---- Accept call creates a new socket for the incoming connection ----*/
-    addr_size = sizeof serverStorage;
-
-    while(newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size))
+    while(1)
     {
-      puts("Connection accepted");
-      if( pthread_create( &thread_id , NULL ,  connection_handler , (void*) &newSocket) < 0)
-          {
-              perror("could not create thread");
-              return 1;
-          }
+      if(listen(welcomeSocket,5)==0)
+        printf("Listening\n");
+      else
+        printf("Error\n");
 
-          //Now join the thread , so that we dont terminate before the thread
-          //pthread_join( thread_id , NULL);
-          puts("Handler assigned");
-      }
+      /*---- Accept call creates a new socket for the incoming connection ----*/
+      addr_size = sizeof serverStorage;
 
-      if (newSocket < 0)
+      while(newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size))
       {
-          perror("accept failed");
-          return 1;
-      }
-      pthread_mutex_destroy(&lock);
+        puts("Connection accepted");
+        if( pthread_create( &thread_id , NULL ,  connection_handler , (void*) &newSocket) < 0)
+            {
+                perror("could not create thread");
+                return 1;
+            }
 
-      return 0;
+            //Now join the thread , so that we dont terminate before the thread
+            //pthread_join( thread_id , NULL);
+            puts("Handler assigned");
+        }
+
+        if (newSocket < 0)
+        {
+            perror("accept failed");
+            return 1;
+        }
+      pthread_mutex_destroy(&lock);
+    }
+
+    return 0;
 
 
     /*---- Send message to the socket of the incoming connection ----*/
@@ -99,7 +110,7 @@
       char op[1024] = {0};
       char message[1024] , client_message[1024];
       getcwd(current_dir_name, sizeof(current_dir_name));
-      current_dir = opendir(current_dir_name);
+      current_dir = opendir(current_dir_name); // aponta para diretorio atual
 
       //Send some messages to the client
       strcpy(message, "Greetings! I am your connection handler\n");
@@ -116,6 +127,30 @@
         {
           pthread_mutex_lock(&lock);
           rmv_dir(sock);
+          pthread_mutex_unlock(&lock);
+        }
+        else if(strcmpst1nl(op, "mkfile") == 0)
+        {
+          pthread_mutex_lock(&lock);
+          create_file(sock);
+          pthread_mutex_unlock(&lock);
+        }
+        else if(strcmpst1nl(op, "rmfile") == 0)
+        {
+          pthread_mutex_lock(&lock);
+          remove_file(sock);
+          pthread_mutex_unlock(&lock);
+        }
+        else if(strcmpst1nl(op,"edit") == 0)
+        {
+          pthread_mutex_lock(&lock);
+          edit_file(sock);
+          pthread_mutex_unlock(&lock);
+        }
+        else if(strcmpst1nl(op, "show") == 0)
+        {
+          pthread_mutex_lock(&lock);
+          show_file(sock);
           pthread_mutex_unlock(&lock);
         }
         else
@@ -135,6 +170,111 @@
       {
           perror("recv failed");
       }
+}
+
+  void show_file(int sock)
+  {
+    FILE* fp;
+    char msg[1024];
+    char name[1024];
+    int read_size;
+
+    strcpy(msg,"File name to show: ");
+    send(sock, msg, strlen(msg), 0 );
+    read_size = read(sock, name, 1024);
+    name[read_size-1] = '\0';
+    fp = fopen(name, "r");
+    if(fp == NULL){
+      strcpy(msg,"Error on opening file");
+      send(sock, msg, strlen(msg), 0 );
+    }
+    else
+    {
+      fgets(msg, 1024, fp);
+      send(sock, msg, strlen(msg), 0 );
+    }
+    fclose(fp);
+
+  }
+
+  void  edit_file(int sock){
+    FILE* fp;
+    char msg[1024];
+    char name[1024];
+    int read_size;
+
+    strcpy(msg,"File name to edit: ");
+    send(sock, msg, strlen(msg), 0 );
+    read_size = read(sock, name, 1024);
+    name[read_size-1] = '\0';
+    fp = fopen(name, "w");
+    if(fp == NULL){
+      strcpy(msg,"Error on opening file");
+      send(sock, msg, strlen(msg), 0 );
+    }
+    else
+    {
+      strcpy(msg,"Type your text: ");
+      send(sock, msg, strlen(msg), 0 );
+      read_size = read(sock, name, 1024);
+      name[read_size-1] = '\0';
+      if(fprintf(fp, "%s\n",name) < 0)
+      {
+        strcpy(msg,"Edit failed: ");
+        send(sock, msg, strlen(msg), 0 );
+      }
+      else{
+        strcpy(msg,"Edit sucessed: ");
+        send(sock, msg, strlen(msg), 0 );
+      }
+    }
+    fclose(fp);
+  }
+
+
+  void remove_file(int sock)
+  {
+    char name[1024];
+    char msg[1024];
+    int read_size;
+    strcpy(msg, "Enter file name: ");
+    send(sock,msg, strlen(msg), 0);
+    read_size = read(sock, name, 1024);
+    name[read_size-1] = '\0';
+    if ( remove(name) != 0) {
+      strcpy(msg,"Failed to remove file");
+      send(sock,msg,strlen(msg),0);
+    }
+    else
+    {
+      strcpy(msg,"File removed with success");
+      send(sock,msg,strlen(msg),0);
+    }
+  }
+
+
+
+  void create_file(int sock)
+  {
+    FILE* fp;
+    char name[1024];
+    char msg[1024];
+    int read_size;
+    strcpy(msg, "Enter file name: ");
+    send(sock,msg, strlen(msg), 0);
+    read_size = read(sock, name, 1024);
+    name[read_size-1] = '\0';
+    fp = fopen(name, "w");
+    if (fp == NULL) {
+      strcpy(msg,"Failed to create file");
+      send(sock,msg,strlen(msg),0);
+    }
+    else
+    {
+      strcpy(msg,"File created with success");
+      send(sock,msg,strlen(msg),0);
+    }
+    fclose(fp);
   }
 
   void create_dir(int sock)
