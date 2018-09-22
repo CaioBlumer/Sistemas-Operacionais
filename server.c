@@ -12,6 +12,7 @@
   #include <sys/stat.h>
   #include <sys/types.h>
     #include <netinet/in.h>
+    #include <dirent.h>
 
   void create_dir(int sock);
   void rmv_dir(int sock);
@@ -19,8 +20,12 @@
   void *connection_handler(void *);
   void create_file(int sock);
   void remove_file(int sock);
-  void  edit_file(sock);
+  void edit_file(int sock);
   void show_file(int sock);
+  void cd_directory(int sock, DIR* current_dir);
+  void list_directory(int sock);
+
+
 
 
 
@@ -37,7 +42,11 @@
 
     /*---- Create the socket. The three arguments are: ----*/
     /* 1) Internet domain 2) Stream socket 3) Default protocol (TCP in this case) */
-    welcomeSocket = socket(PF_INET, SOCK_STREAM, 0);
+    welcomeSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if(welcomeSocket == -1)
+    {
+      printf("Error - Create socket");
+    }
 
     /*---- Configure settings of the server address struct ----*/
     /* Address family = Internet */
@@ -45,12 +54,16 @@
     /* Set port number, using htons function to use proper byte order */
     serverAddr.sin_port = htons(8080);
     /* Set IP address to localhost */
-    serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    serverAddr.sin_addr.s_addr =INADDR_ANY;
     /* Set all bits of the padding field to 0 */
-    memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
+    memset(serverAddr.sin_zero, '0', sizeof serverAddr.sin_zero);
 
     /*---- Bind the address struct to the socket ----*/
-    bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
+    if(bind(welcomeSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0)
+    {
+      printf("Error: Bind");
+      return 1;
+    }
 
     if (pthread_mutex_init(&lock, NULL) != 0)
      {
@@ -113,7 +126,7 @@
       current_dir = opendir(current_dir_name); // aponta para diretorio atual
 
       //Send some messages to the client
-      strcpy(message, "Greetings! I am your connection handler\n");
+      strcpy(message, "Greetings! I am your connection handler");
       send(sock, message, strlen(message), 0);
       read_size = read(sock, op, 1024);
       //Receive a message from client
@@ -153,6 +166,18 @@
           show_file(sock);
           pthread_mutex_unlock(&lock);
         }
+        else if(strcmpst1nl(op,"cd") == 0)
+        {
+          pthread_mutex_lock(&lock);
+          cd_directory(sock, current_dir);
+          pthread_mutex_unlock(&lock);
+        }
+        else if(strcmpst1nl(op, "ls") == 0)
+        {
+          pthread_mutex_lock(&lock);
+          list_directory(sock);
+          pthread_mutex_unlock(&lock);
+        }
         else
         {
           strcpy(message, "fail");
@@ -171,6 +196,59 @@
           perror("recv failed");
       }
 }
+
+  void list_directory(int sock)
+  {
+    struct dirent *de;
+    char current[1024];
+    char msg[1024];
+    char buf[1024*10]={};
+    getcwd(current, sizeof(current));
+    DIR* dr = opendir(current);
+    if (dr == NULL)  // opendir returns NULL if couldn't open directory
+      {
+          strcpy(msg, "Could not open current directory");
+          send(sock, msg,strlen(msg), 0);
+      }
+    while ( de = readdir(dr) != NULL )
+    {
+      strcat(msg, de->d_name);
+    }
+    //sprintf(aux,"%s ", de->d_name);
+
+    send(sock,msg,strlen(msg),0);
+    closedir(dr);
+  }
+
+
+  void cd_directory(int sock, DIR* current_dir)
+  {
+    FILE* fp;
+    char msg[1024];
+    char name[1024];
+    int read_size;
+    char current[1024];
+
+    strcpy(msg,"Directory name to enter: ");
+    send(sock, msg, strlen(msg), 0 );
+    read_size = read(sock, name, 1024);
+    name[read_size-1] = '\0';
+    if(chdir(name) == -1)
+    {
+      strcpy(msg,"Error changing directory");
+      send(sock, msg, strlen(msg), 0 );
+    }
+    else
+    {
+      getcwd(current, sizeof(current));
+      current_dir = opendir(current);
+      strcpy(msg, "Success!");
+      send(sock, msg, strlen(msg), 0);
+    }
+
+
+
+  }
 
   void show_file(int sock)
   {

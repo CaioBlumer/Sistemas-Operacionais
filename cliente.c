@@ -53,7 +53,7 @@ int main(){
 
   while(1)
   {
-  read_size = recv(clientSocket, buffer, 1024, 0);
+  read_size = recv(clientSocket, buffer, 1024,0);
   printf("Data received: %s\n",buffer);
   fgets(msg, LEN, stdin);
   send(clientSocket, msg, strlen(msg),0);
