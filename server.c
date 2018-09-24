@@ -214,8 +214,7 @@
     {
       strcat(msg, de->d_name);
     }
-    //sprintf(aux,"%s ", de->d_name);
-
+    //sprintf(aux,"%s ", de->d_name)
     send(sock,msg,strlen(msg),0);
     closedir(dr);
   }
