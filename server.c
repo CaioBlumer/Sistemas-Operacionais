@@ -120,15 +120,21 @@
       char current_dir_name[1024];
       int sock = *(int*)socket_desc;
       int read_size;
-      char op[1024] = {0};
-      char message[1024] , client_message[1024];
+      char *op, *name;
+      char message[1024] , client_message[1024] = {'\0'};
       getcwd(current_dir_name, sizeof(current_dir_name));
       current_dir = opendir(current_dir_name); // aponta para diretorio atual
 
       //Send some messages to the client
       strcpy(message, "Greetings! I am your connection handler");
       send(sock, message, strlen(message), 0);
-      read_size = read(sock, op, 1024);
+      read_size = read(sock, client_message, 1024);
+
+      op = strtok(client_message," \0");
+      name = strtok(NULL," \0");
+      printf("%s\n",op );
+      printf("%s\n",name );
+
       //Receive a message from client
       while( 1)
       {
@@ -183,7 +189,12 @@
           strcpy(message, "fail");
           send(sock, message, strlen(message), 0);
         }
-        read_size = read(sock, op, 1024);
+        memset(client_message, '\0', 1024);
+        read_size = read(sock, client_message, 1024);
+        op = strtok (client_message," \0");
+        name = strtok (NULL," \0");
+        printf("%s\n",op );
+        printf("%s\n",name );
       }
 
       if(read_size == 0)
@@ -260,6 +271,7 @@
     send(sock, msg, strlen(msg), 0 );
     read_size = read(sock, name, 1024);
     name[read_size-1] = '\0';
+
     fp = fopen(name, "r");
     if(fp == NULL){
       strcpy(msg,"Error on opening file");
@@ -295,6 +307,7 @@
       send(sock, msg, strlen(msg), 0 );
       read_size = read(sock, name, 1024);
       name[read_size-1] = '\0';
+
       if(fprintf(fp, "%s\n",name) < 0)
       {
         strcpy(msg,"Edit failed: ");
