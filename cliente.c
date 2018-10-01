@@ -13,7 +13,7 @@
 #include <stdlib.h>
 
 #define LEN 1024
-#define porta 8980
+#define porta 8888
 
 void f_send_message(int sock);
 int strcmpst1nl (const char * s1, const char * s2);
