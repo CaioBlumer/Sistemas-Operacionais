@@ -13,6 +13,7 @@
 #include <stdlib.h>
 
 #define LEN 1024
+#define porta 8980
 
 void f_send_message(int sock);
 int strcmpst1nl (const char * s1, const char * s2);
@@ -33,7 +34,7 @@ int main(){
   /* Address family = Internet */
   serverAddr.sin_family = AF_INET;
   /* Set port number, using htons function to use proper byte order */
-  serverAddr.sin_port = htons(8080);
+  serverAddr.sin_port = htons(porta);
   /* Set IP address to localhost */
   serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
   /* Set all bits of the padding field to 0 */
@@ -57,7 +58,7 @@ int main(){
   printf("Data received: %s\n",buffer);
   fgets(msg, LEN, stdin);
   send(clientSocket, msg, strlen(msg),0);
-  memset(buffer, '\0', strlen(buffer)); 
+  memset(buffer, '\0', strlen(buffer));
   }
  close(clientSocket);
   return 0;

@@ -11,14 +11,14 @@
   #include <sys/socket.h>
   #include <sys/stat.h>
   #include <sys/types.h>
-    #include <netinet/in.h>
-    #include <dirent.h>
-
+  #include <netinet/in.h>
+  #include <dirent.h>
+  #define porta 8980
 
   int strcmpst1nl (const char * s1, const char * s2);
   void *connection_handler(void *);
 
-// operations
+  // operations
   void create_file(int sock, char* name);
   void remove_file(int sock, char* name);
   void edit_file(int sock, char* name);
@@ -28,20 +28,17 @@
   void create_dir(int sock, char* name);
   void rmv_dir(int sock, char* name);
 
-
-
-
-
-
   pthread_mutex_t lock;
 
   int main(){
+
     int welcomeSocket, newSocket;
-    char buffer[1024];
     struct sockaddr_in serverAddr;
     struct sockaddr_storage serverStorage;
+
+    int i=0;
+    pthread_t thread_id[5];
     socklen_t addr_size;
-    pthread_t thread_id;
 
     /*---- Create the socket. The three arguments are: ----*/
     /* 1) Internet domain 2) Stream socket 3) Default protocol (TCP in this case) */
@@ -55,7 +52,7 @@
     /* Address family = Internet */
     serverAddr.sin_family = AF_INET;
     /* Set port number, using htons function to use proper byte order */
-    serverAddr.sin_port = htons(8080);
+    serverAddr.sin_port = htons(porta);
     /* Set IP address to localhost */
     serverAddr.sin_addr.s_addr =INADDR_ANY;
     /* Set all bits of the padding field to 0 */
@@ -77,34 +74,32 @@
     /*---- Listen on the socket, with 5 max connection requests queued ----*/
     while(1)
     {
-      if(listen(welcomeSocket,5)==0)
-        printf("Listening\n");
-      else
-        printf("Error\n");
 
-      /*---- Accept call creates a new socket for the incoming connection ----*/
-      addr_size = sizeof serverStorage;
+        if(listen(welcomeSocket,5)==0)
+          printf("Listening\n");
+        else
+          printf("Error\n");
 
-      while(newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size))
-      {
-        puts("Connection accepted");
-        if( pthread_create( &thread_id , NULL ,  connection_handler , (void*) &newSocket) < 0)
-            {
-                perror("could not create thread");
-                return 1;
-            }
+        /*---- Accept call creates a new socket for the incoming connection ----*/
+        addr_size = sizeof serverStorage;
 
-            //Now join the thread , so that we dont terminate before the thread
-            //pthread_join( thread_id , NULL);
-            puts("Handler assigned");
+        while(newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size))
+        {
+          puts("Connection accepted");
+          if( pthread_create( &thread_id[i], NULL ,  connection_handler , (void*) &newSocket) < 0)
+              {
+                  perror("could not create thread");
+                  return 1;
+              }
+              puts("Handler assigned");
         }
-
+        i++;
         if (newSocket < 0)
         {
             perror("accept failed");
             return 1;
         }
-      pthread_mutex_destroy(&lock);
+        pthread_mutex_destroy(&lock);
     }
 
     return 0;
@@ -136,11 +131,16 @@
       op = strtok(client_message," \0");
       name = strtok(NULL," \0");
       printf("%s\n",op );
-      printf("%s\n",name );
-      if(op =="ls"){
-          name = "nada";
+
+      if(strcmpst1nl(op,"ls") == 0){
+          name = "default";
+          printf("entrou if op==ls\n" );
       }
-      name[strlen(name)-1] = '\0';
+      else
+      {
+        printf("entrou else ls\n");
+        name[strlen(name)-1] = '\0';
+      }
 
 
 
@@ -200,9 +200,20 @@
         }
         memset(client_message, '\0', 1024);
         read_size = read(sock, client_message, 1024);
+        if(read_size <= 0)
         op = strtok (client_message," \0");
         name = strtok (NULL," \0");
-        name[strlen(name)-1] = '\0';
+        if(strcmpst1nl(op,"ls") == 0){
+            name = "default";
+            // printf("entrou if op==ls\n" );
+        }
+        else
+        {
+          // printf("entrou else ls\n");
+          name[strlen(name)-1] = '\0';
+        }
+
+
         printf("%s\n",op );
         printf("%s\n",name );
       }
@@ -210,32 +221,25 @@
 
   void list_directory(int sock)
   {
-    struct dirent *de;
-    char current[1024];
-    char msg[1024];
-    char buf[1024*10]={};
-    int aux=0;
-    getcwd(current, sizeof(current));
-    DIR* dr = opendir(current);
-    if (dr == NULL)  // opendir returns NULL if couldn't open directory
-      {
-          strcpy(msg, "Could not open current directory");
-          send(sock, msg,strlen(msg), 0);
-      }
-    de = readdir(dr);
-    while ( de != NULL )
-    {
-      aux++;
-      strcat(buf, de->d_name);
-      printf("%s", aux);
-      de = readdir(dr);
+    char msg[1024] = "";
+    char buf[1024] = "";
+    char current[1024] = "";
+    getcwd(current,sizeof(current));
+    struct dirent *dir = NULL;
+    DIR* current_dir = opendir(current);
+    dir = readdir(current_dir);
+    memset(msg, 0, sizeof(msg));
+    while(dir = readdir(current_dir)){
+      strcat(msg, dir->d_name);
+      strcat(msg, "\n");
     }
-    strcpy(msg, buf);
+    rewinddir(current_dir);
+    send(sock, msg, strlen(msg), 0);
+}
 
-    //sprintf(aux,"%s ", de->d_name)
-    send(sock,msg,strlen(msg),0);
-    closedir(dr);
-  }
+
+
+
 
 
   void cd_directory(int sock, DIR* current_dir, char* name)
@@ -243,12 +247,8 @@
     FILE* fp;
     char msg[1024];
     int read_size;
-    //char nome[1024];
     char current[1024];
 
-    // strcpy(msg,"Directory name to enter: ");
-    // send(sock, msg, strlen(msg), 0 );
-    // read_size = read(sock, name, 1024);
     if(chdir(name) == -1)
     {
       strcpy(msg,"Error changing directory");
@@ -261,9 +261,6 @@
       strcpy(msg, "Success!");
       send(sock, msg, strlen(msg), 0);
     }
-
-
-
   }
 
   void show_file(int sock, char* name)
@@ -272,11 +269,6 @@
     char msg[1024];
     // char name[1024];
     int read_size;
-
-    // strcpy(msg,"File name to show: ");
-    // send(sock, msg, strlen(msg), 0 );
-    // read_size = read(sock, name, 1024);
-    // name[read_size-1] = '\0';
 
     fp = fopen(name, "r");
     if(fp == NULL){
@@ -424,6 +416,7 @@
   int strcmpst1nl (const char * s1, const char * s2)
   {
     char s1c;
+    if( s1 == NULL) return -1;
     do
       {
         s1c = *s1;
