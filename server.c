@@ -14,16 +14,19 @@
     #include <netinet/in.h>
     #include <dirent.h>
 
-  void create_dir(int sock, char* name);
-  void rmv_dir(int sock);
+
   int strcmpst1nl (const char * s1, const char * s2);
   void *connection_handler(void *);
-  void create_file(int sock);
-  void remove_file(int sock);
-  void edit_file(int sock);
-  void show_file(int sock);
+
+// operations
+  void create_file(int sock, char* name);
+  void remove_file(int sock, char* name);
+  void edit_file(int sock, char* name);
+  void show_file(int sock, char* name);
   void cd_directory(int sock, DIR* current_dir, char* name);
   void list_directory(int sock);
+  void create_dir(int sock, char* name);
+  void rmv_dir(int sock, char* name);
 
 
 
@@ -134,7 +137,12 @@
       name = strtok(NULL," \0");
       printf("%s\n",op );
       printf("%s\n",name );
+      if(op =="ls"){
+          name = "nada";
+      }
       name[strlen(name)-1] = '\0';
+
+
 
       //Receive a message from client
       while( 1)
@@ -146,31 +154,31 @@
         else if (strcmpst1nl(op,"rmdir") == 0)
         {
           pthread_mutex_lock(&lock);
-          rmv_dir(sock);
+          rmv_dir(sock, name);
           pthread_mutex_unlock(&lock);
         }
         else if(strcmpst1nl(op, "mkfile") == 0)
         {
           pthread_mutex_lock(&lock);
-          create_file(sock);
+          create_file(sock, name);
           pthread_mutex_unlock(&lock);
         }
         else if(strcmpst1nl(op, "rmfile") == 0)
         {
           pthread_mutex_lock(&lock);
-          remove_file(sock);
+          remove_file(sock, name);
           pthread_mutex_unlock(&lock);
         }
         else if(strcmpst1nl(op,"edit") == 0)
         {
           pthread_mutex_lock(&lock);
-          edit_file(sock);
+          edit_file(sock, name);
           pthread_mutex_unlock(&lock);
         }
         else if(strcmpst1nl(op, "show") == 0)
         {
           pthread_mutex_lock(&lock);
-          show_file(sock);
+          show_file(sock, name);
           pthread_mutex_unlock(&lock);
         }
         else if(strcmpst1nl(op,"cd") == 0)
@@ -206,6 +214,7 @@
     char current[1024];
     char msg[1024];
     char buf[1024*10]={};
+    int aux=0;
     getcwd(current, sizeof(current));
     DIR* dr = opendir(current);
     if (dr == NULL)  // opendir returns NULL if couldn't open directory
@@ -213,10 +222,16 @@
           strcpy(msg, "Could not open current directory");
           send(sock, msg,strlen(msg), 0);
       }
-    while ( de = readdir(dr) != NULL )
+    de = readdir(dr);
+    while ( de != NULL )
     {
-      strcat(msg, de->d_name);
+      aux++;
+      strcat(buf, de->d_name);
+      printf("%s", aux);
+      de = readdir(dr);
     }
+    strcpy(msg, buf);
+
     //sprintf(aux,"%s ", de->d_name)
     send(sock,msg,strlen(msg),0);
     closedir(dr);
@@ -251,17 +266,17 @@
 
   }
 
-  void show_file(int sock)
+  void show_file(int sock, char* name)
   {
     FILE* fp;
     char msg[1024];
-    char name[1024];
+    // char name[1024];
     int read_size;
 
-    strcpy(msg,"File name to show: ");
-    send(sock, msg, strlen(msg), 0 );
-    read_size = read(sock, name, 1024);
-    name[read_size-1] = '\0';
+    // strcpy(msg,"File name to show: ");
+    // send(sock, msg, strlen(msg), 0 );
+    // read_size = read(sock, name, 1024);
+    // name[read_size-1] = '\0';
 
     fp = fopen(name, "r");
     if(fp == NULL){
@@ -277,16 +292,16 @@
 
   }
 
-  void  edit_file(int sock){
+  void  edit_file(int sock, char* name){
     FILE* fp;
     char msg[1024];
-    char name[1024];
+    // char name[1024];
     int read_size;
 
-    strcpy(msg,"File name to edit: ");
-    send(sock, msg, strlen(msg), 0 );
-    read_size = read(sock, name, 1024);
-    name[read_size-1] = '\0';
+    // strcpy(msg,"File name to edit: ");
+    // send(sock, msg, strlen(msg), 0 );
+    // read_size = read(sock, name, 1024);
+    // name[read_size-1] = '\0';
     fp = fopen(name, "w");
     if(fp == NULL){
       strcpy(msg,"Error on opening file");
@@ -313,15 +328,15 @@
   }
 
 
-  void remove_file(int sock)
+  void remove_file(int sock, char* name)
   {
-    char name[1024];
+    // char name[1024];
     char msg[1024];
     int read_size;
-    strcpy(msg, "Enter file name: ");
-    send(sock,msg, strlen(msg), 0);
-    read_size = read(sock, name, 1024);
-    name[read_size-1] = '\0';
+    // strcpy(msg, "Enter file name: ");
+    // send(sock,msg, strlen(msg), 0);
+    // read_size = read(sock, name, 1024);
+    // name[read_size-1] = '\0';
     if ( remove(name) != 0) {
       strcpy(msg,"Failed to remove file");
       send(sock,msg,strlen(msg),0);
@@ -335,16 +350,16 @@
 
 
 
-  void create_file(int sock)
+  void create_file(int sock, char* name)
   {
     FILE* fp;
-    char name[1024];
+    // char name[1024];
     char msg[1024];
     int read_size;
-    strcpy(msg, "Enter file name: ");
-    send(sock,msg, strlen(msg), 0);
-    read_size = read(sock, name, 1024);
-    name[read_size-1] = '\0';
+    // strcpy(msg, "Enter file name: ");
+    // send(sock,msg, strlen(msg), 0);
+    // read_size = read(sock, name, 1024);
+    // name[read_size-1] = '\0';
     fp = fopen(name, "w");
     if (fp == NULL) {
       strcpy(msg,"Failed to create file");
@@ -382,16 +397,16 @@
     return;
   }
 
-  void rmv_dir(int sock)
+  void rmv_dir(int sock, char* name)
   {
     int read_size;
     char message[1024];
-    char name[1024];
+    //char name[1024];
 
-    strcpy(message, "Directory name: ");
-    send(sock, message, strlen(message), 0);
-    read_size = read(sock, name, 1024);
-    name[read_size - 1] = '\0';
+    // strcpy(message, "Directory name: ");
+    // send(sock, message, strlen(message), 0);
+    // read_size = read(sock, name, 1024);
+    // name[read_size - 1] = '\0';
     if(rmdir(name) == -1)
     {
       strcpy(message, "Error, failed to remove directory");
