@@ -14,7 +14,7 @@
     #include <netinet/in.h>
     #include <dirent.h>
 
-  void create_dir(int sock);
+  void create_dir(int sock, char* name);
   void rmv_dir(int sock);
   int strcmpst1nl (const char * s1, const char * s2);
   void *connection_handler(void *);
@@ -22,7 +22,7 @@
   void remove_file(int sock);
   void edit_file(int sock);
   void show_file(int sock);
-  void cd_directory(int sock, DIR* current_dir);
+  void cd_directory(int sock, DIR* current_dir, char* name);
   void list_directory(int sock);
 
 
@@ -134,13 +134,14 @@
       name = strtok(NULL," \0");
       printf("%s\n",op );
       printf("%s\n",name );
+      name[strlen(name)-1] = '\0';
 
       //Receive a message from client
       while( 1)
       {
         if(strcmpst1nl(op,"mkdir") == 0)
         {
-          create_dir(sock);
+          create_dir(sock, name);
         }
         else if (strcmpst1nl(op,"rmdir") == 0)
         {
@@ -175,7 +176,7 @@
         else if(strcmpst1nl(op,"cd") == 0)
         {
           pthread_mutex_lock(&lock);
-          cd_directory(sock, current_dir);
+          cd_directory(sock, current_dir, name);
           pthread_mutex_unlock(&lock);
         }
         else if(strcmpst1nl(op, "ls") == 0)
@@ -193,18 +194,9 @@
         read_size = read(sock, client_message, 1024);
         op = strtok (client_message," \0");
         name = strtok (NULL," \0");
+        name[strlen(name)-1] = '\0';
         printf("%s\n",op );
         printf("%s\n",name );
-      }
-
-      if(read_size == 0)
-      {
-          puts("Client disconnected");
-          fflush(stdout);
-      }
-      else if(read_size == -1)
-      {
-          perror("recv failed");
       }
 }
 
@@ -231,18 +223,17 @@
   }
 
 
-  void cd_directory(int sock, DIR* current_dir)
+  void cd_directory(int sock, DIR* current_dir, char* name)
   {
     FILE* fp;
     char msg[1024];
-    char name[1024];
     int read_size;
+    //char nome[1024];
     char current[1024];
 
-    strcpy(msg,"Directory name to enter: ");
-    send(sock, msg, strlen(msg), 0 );
-    read_size = read(sock, name, 1024);
-    name[read_size-1] = '\0';
+    // strcpy(msg,"Directory name to enter: ");
+    // send(sock, msg, strlen(msg), 0 );
+    // read_size = read(sock, name, 1024);
     if(chdir(name) == -1)
     {
       strcpy(msg,"Error changing directory");
@@ -367,16 +358,17 @@
     fclose(fp);
   }
 
-  void create_dir(int sock)
+  void create_dir(int sock, char* name)
   {
     int read_size;
     char message[1024];
-    char name[1024];
+    //char name[1024];
 
-    strcpy(message, "Directory name: ");
-    send(sock, message, strlen(message), 0);
-    read_size = read(sock, name, 1024);
-    name[read_size - 1] = '\0';
+    // strcpy(message, "Directory name: ");
+    // send(sock, message, strlen(message), 0);
+    // read_size = read(sock, name, 1024);
+    // name[read_size - 1] = '\0';
+
     if(mkdir(name,ALLPERMS) == -1)
     {
       strcpy(message, "Error, failed to create directory");
